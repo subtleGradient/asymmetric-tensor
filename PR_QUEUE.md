@@ -106,13 +106,74 @@ Fixes #25.
 - Independent review checked the statement against PDF page50 Eq. (239); git diff --check passed.
 - Nine existing legacy/module import warnings remain. No upstream CI pass is claimed.
 
+## READY: #11 full tensor Lie derivative
+
+Status: **READY**
+Issue: https://github.com/lilalittle/asymmetric-tensor/issues/11
+Source repository: subtleGradient/asymmetric-tensor
+Source branch: `dot/full-tensor-lie-derivative`
+Verified head: `63e464cf8dec7f61d8a9e89a738bca8edcf6fa26`
+Target: `lilalittle/asymmetric-tensor:main`
+Target baseline: `9f69988d17c9fb86f35a563eb6466be9dbf4e524`
+Dependencies: none. Independent change; retain the separate conservation repair when integrating.
+Compare: https://github.com/lilalittle/asymmetric-tensor/compare/main...subtleGradient:asymmetric-tensor:dot/full-tensor-lie-derivative
+Proposed title: Implement the full covariant tensor Lie derivative
+
+### Full proposed PR body
+
+#### Summary
+- Implement transport and both missing lower-index terms of the fixed-chart covariant rank-two Lie derivative, retaining the old expression as directional_transport.
+- Derive translation, dilation, constant-tensor L_x U = 2U, general linear-generator, and constant-isotropic boost formulas from the operator.
+- Require actual invariance in lorentz_symmetry_broken instead of assuming its scalar residual; document the intentional API changes.
+- State differentiability/chart limitations and map the manuscript boost sign and equations accurately.
+
+Fixes #11.
+
+#### Validation
+- Full pinned lake build and lake env lean tests/LieDerivative.lean passed.
+- Independent reviewer reran source elaboration and focused tests successfully and checked manuscript pp.18–20.
+- New derivative/symmetry proof dependencies contain only standard logical axioms; the U_sym bridge also uses existing c. No conservation axiom or sorryAx dependency.
+- git diff --check passed. Only existing module/import warnings remain.
+
+This is fixed-chart differential tensor calculus and a constant-isotropic boost implication, not a proof of general dynamic/manifold symmetry, finite-flow invariance, Noether consequences, or special-conformal claims. The PDF is unchanged.
+
+## READY: #27 manuscript force baseline
+
+Status: **READY**
+Issue: https://github.com/lilalittle/asymmetric-tensor/issues/27
+Source repository: subtleGradient/asymmetric-tensor
+Source branch: `dot/fix-em-force-baseline`
+Verified head: `8b23c2e6f1bcabc0974a2ec85b2f484d3e234507`
+Target: `lilalittle/asymmetric-tensor:main`
+Target baseline: `9f69988d17c9fb86f35a563eb6466be9dbf4e524`
+Dependencies: none. README build-section overlap with #34 must preserve its focused test command.
+Compare: https://github.com/lilalittle/asymmetric-tensor/compare/main...subtleGradient:asymmetric-tensor:dot/fix-em-force-baseline
+Proposed title: Match the manuscript electromagnetic force baseline
+
+### Full proposed PR body
+
+#### Summary
+- Correct interaction_hierarchy_em to match v9 Eq. (224): the unscaled F_fund(a0) baseline has alpha squared, with no additional coupling multiplier.
+- Prove its baseline/strong ratio is alpha to the fourth on explicit nonzero domains.
+- Retain the old scaled identity under an explicitly algebraic name and prove its distinct alpha-to-the-fifth ratio.
+- Document manuscript correspondence and add symbolic, rational, and zero-mass regression proofs. No extra coupled physical force is asserted.
+
+Fixes #27.
+
+#### Validation
+- Full pinned lake build and lake env lean tests/ForceHierarchy.lean passed.
+- 12 independent exact-rational parameter checks passed.
+- Independent review checked the PDF Eq. (224) and ratio conventions.
+- git diff --check passed. New unused-tactic warnings were cleaned up and tests rerun; only existing module/import warnings remain.
+- No hosted CI pass is claimed.
+
+The manuscript PDF remains unchanged because the retained baseline already matches its equation; the separate scaled identity is mathematical rescaling only.
+
 ## In-progress changes: do not open yet
 
 | Issue | Proposed branch | Status and remaining validation |
 | --- | --- | --- |
-| [#27](https://github.com/lilalittle/asymmetric-tensor/issues/27) force baseline | `dot/fix-em-force-baseline` | Local patch prepared; independent static review and 12 exact rational checks passed; Lean kernel checks pending. Branch not yet published. |
 | [#34](https://github.com/lilalittle/asymmetric-tensor/issues/34) reproducible setup | `dot/reproduce-pinned-build` (planned name) | Local patch prepared; static pin-preservation review passed; fresh-checkout build validation pending. Branch not yet published. |
-| [#11](https://github.com/lilalittle/asymmetric-tensor/issues/11) tensor Lie derivative | To be recorded after validation | Local implementation underway; review and kernel checks pending. |
 | [#33](https://github.com/lilalittle/asymmetric-tensor/issues/33) formalization scope | To be recorded after validation | Documentation underway; baseline inconsistency must remain disclosed until the conservation repair is integrated. |
 
 Pinned Lean 4.35.0 and the required Mathlib import cache are installed. Baseline and READY-entry builds passed. No untested Lean change is marked ready.
