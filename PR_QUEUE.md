@@ -1,5 +1,7 @@
 # Pull request queue
 
+Pass state: **ACTIVE**. The publisher stops once this is **COMPLETE** and every ready entry is published or has a recorded blocker.
+
 Updated: 2026-10-15 UTC. Target repository: lilalittle/asymmetric-tensor.
 This branch is a coordination record, not a proposed change to upstream.
 Do not merge or open a PR for this queue branch.
@@ -7,7 +9,7 @@ Do not merge or open a PR for this queue branch.
 ## Handoff rules
 
 - Open only entries marked **READY**, unless explicitly instructed otherwise.
-- Check the upstream open PR list before creating a PR to avoid duplicates.
+- Check upstream open, closed, and merged PRs before creating a PR to avoid duplicates.
 - Preserve the exact issue-specific source branch and target `main`.
 - Copy the full proposed title/body below. Opening a PR does not authorize merging.
 - **IN PROGRESS** entries are not yet validated or ready for publication.
