@@ -1,3 +1,4 @@
+import Mathlib.MeasureTheory.Integral.IntervalIntegral.Basic
 import Mathlib.Analysis.Calculus.Deriv.Basic
 import Mathlib.Analysis.Calculus.FDeriv.Basic
 import Mathlib.Geometry.Manifold.Instances.Real
@@ -13,16 +14,31 @@ import Mathlib.Tactic
 # The Asymmetric Metric-Tensor and the Thermodynamic Equation of State
 
 **Author:** Binyamin Tsadik Bair-Mosheh
-**Dataset / Code Archive:** [Github Insert]
+**Dataset / Code Archive:** https://github.com/lilalittle/asymmetric-tensor
 **Preprint:** Zenodo (https://doi.org/10.5281/zenodo.21321264)
 
-## Abstract
+## Manuscript abstract (not a statement of formal coverage)
 This document resumes Einstein's effort to unify gravitation and electromagnetism by generalizing the classical symmetric metric into a complete Asymmetric Metric-Tensor (). By relaxing the assumption of an irrotational vacuum baseline, the tensor forward-models both macroscopic spacetime curvature (General Relativity) and discrete quantum kinematics (Electromagnetism and Mass) as orthogonal, coupled strain components of a continuous manifold. 
 
 The scope of this manuscript constructs the primary tensor, computes its principal eigenvalues, and applies symmetry-breaking Lie derivatives to resolve the trace contractions of the matrix. These operations derive the four fundamental forces as boundary conditions of a single continuous pressure gradient. Beyond recovering the admittance-modified Navier-Stokes equation, the Kinematic Lagrangian and the Schwarzschild metric, the tensor extracts the cosmological constant (), the physical Planck mass yield limit, the Compton cavitation boundary, anomalous galactic kinematics without dark matter, and cosmological redshift via thermodynamic metric capacity.
 
 ## Formalization Architecture (v2.0)
-This Lean 4 document translates the theoretical framework into a continuous differential geometry model. Macroscopic forces are derived as the geometric divergence of the continuous metric field.
+This file supplies a coordinate-matrix research prototype, algebraic lemmas,
+and conditional statements. Its physical names and section headings do not
+assert that all corresponding manuscript objects or derivations are implemented.
+For the implemented objects, essential assumptions, open targets, and review
+findings, see `docs/integration-status.md` and the versioned historical
+`docs/formalization-status.md` in the code archive above.
+
+The reviewed baseline 9f69988 contained an inconsistent universal
+`covariant_conservation` axiom. This candidate includes the issue #9 repair
+from fork commit 78ee76bf2dbf2412b5f35a51e38e3695c014a6f9: conservation is now
+an explicit `CoordinateConserved` premise, with constant-field witnesses and
+a linear-field counterexample. Inclusion here does not mean upstream merge.
+It supplies neither a covariant connection nor a physical momentum PDE.
+Section 16 contains ten `exact h_target` specifications that assume their
+conclusions. Compilation alone establishes neither consistency of all model
+assumptions nor empirical validation.
 -/
 
 open Real
@@ -142,7 +158,9 @@ lemma c4_div_G_eq_planck_force : c^4 / G = (hbar * c) / l_p^2 := by
 -- ==========================================
 -- SECTION 1: Kinematic Parametrization
 -- ==========================================
+/-- Four real coordinate components, indexed by Fin 4. No metric or frame is built into this type. -/
 abbrev V4 := Fin 4 → ℝ
+/-- Real 4×4 component matrix. Tensor transformation laws and nondegeneracy are additional structure, not properties of this alias. -/
 abbrev T2 := Matrix (Fin 4) (Fin 4) ℝ
 
 variable {V_3D : Type} [AddCommGroup V_3D] [Module ℝ V_3D]
@@ -204,13 +222,16 @@ noncomputable def P_dyn_components (v_parallel_val v_perp_mag_val v_circ_val : �
 -- ==========================================
 
 -- 3.1 Generalized Matrix Slicing Operators
+/-- Symmetric part (U + Uᵀ)/2 of any real component matrix. No invertibility or physical assumptions are required. -/
 noncomputable def symPart (U : T2) : T2 :=
   fun i j => (U i j + U j i) / 2
 
+/-- Antisymmetric part (U − Uᵀ)/2 of any real component matrix. This is algebraic projection, not a volume average. -/
 noncomputable def antiPart (U : T2) : T2 :=
   fun i j => (U i j - U j i) / 2
 
 -- Proof: 4x4 real matrix decomposition.
+/-- Every real 4×4 matrix is the sum of its symmetric and antisymmetric parts. The proof is pointwise ring algebra and uses no physical axioms. -/
 theorem matrix_decomposition (U : T2) :
     U = symPart U + antiPart U := by
   ext i j
@@ -218,18 +239,25 @@ theorem matrix_decomposition (U : T2) :
   ring
 
 -- 3.2 The Bilinear Form Bridge
+/-- Convert a component matrix to the bilinear form (x,y) ↦ ∑ᵢⱼ xᵢ Uᵢⱼ yⱼ, in the fixed standard basis. No metric is inserted. -/
 noncomputable def asBilinear (U : T2) : LinearMap.BilinForm ℝ V4 :=
   Matrix.toBilin' U
 
 -- 3.3 Concrete Tensor Contractions
+-- A and V have two covariant (lower) indices. gInv supplies the contravariant
+-- inverse metric; raiseBoth raises both indices of its second argument.
+
+/-- Raise both component indices using the supplied matrix gInv: ∑αβ gInv μα gInv νβ A αβ. Callers must establish that gInv is the intended inverse metric; this definition does not impose symmetry or inverse laws. -/
 noncomputable def raiseBoth (gInv A : T2) : T2 :=
   fun μ ν => ∑ α : Fin 4, ∑ β : Fin 4, gInv μ α * gInv ν β * A α β
 
+/-- Contract U with V after raising both indices of V with gInv. This is metric-dependent; with a Lorentzian inverse metric it need not be nonnegative. -/
 noncomputable def contract2 (gInv U V : T2) : ℝ :=
   ∑ μ : Fin 4, ∑ ν : Fin 4, U μ ν * raiseBoth gInv V μ ν
 
 -- 3.4 Assembly of the Specific Asymmetric Metric-Tensor
 -- Foundation tensor matrix.
+/-- Assemble the manuscript-inspired component matrix in its fixed comoving chart. Inputs are scalar admittance, velocity, rotation, and time-scale parameters. The formula is totalized at zero denominators; physical use requires a separately justified admissible domain. -/
 noncomputable def U_hat (alpha_s alpha v_x v_y v_z Omega_x Omega_y Omega_z t_p_val : ℝ) : T2 :=
   Matrix.of (fun i j =>
     if i = 0 ∧ j = 0 then -alpha_s^2
@@ -252,9 +280,11 @@ noncomputable def U_hat (alpha_s alpha v_x v_y v_z Omega_x Omega_y Omega_z t_p_v
   )
 
 -- Derived symmetric and antisymmetric tensor components.
+/-- Symmetric algebraic projection of U_hat. In this fixed chart it is diagonal; this does not construct a covariant tensor in arbitrary frames. -/
 noncomputable def U_sym (alpha_s alpha v_x v_y v_z Omega_x Omega_y Omega_z t_p_val : ℝ) : T2 :=
   symPart (U_hat alpha_s alpha v_x v_y v_z Omega_x Omega_y Omega_z t_p_val)
 
+/-- Antisymmetric algebraic projection of U_hat, containing the off-diagonal velocity/rotation terms. Antisymmetry alone does not imply finite volume preservation. -/
 noncomputable def U_anti (alpha_s alpha v_x v_y v_z Omega_x Omega_y Omega_z t_p_val : ℝ) : T2 :=
   antiPart (U_hat alpha_s alpha v_x v_y v_z Omega_x Omega_y Omega_z t_p_val)
 
@@ -273,6 +303,7 @@ theorem antisymmetric_shear (alpha_s alpha v_x v_y v_z Omega_x Omega_y Omega_z t
   simp
 
 -- Tensor decomposition theorem.
+/-- Specialization of matrix_decomposition to U_hat. It proves the algebraic split for all scalar parameters, not an independent physical decomposition law. -/
 theorem tensor_decomposition_proven (alpha_s alpha v_x v_y v_z Omega_x Omega_y Omega_z t_p_val : ℝ) :
     U_hat alpha_s alpha v_x v_y v_z Omega_x Omega_y Omega_z t_p_val = 
     U_sym alpha_s alpha v_x v_y v_z Omega_x Omega_y Omega_z t_p_val + 
@@ -372,6 +403,7 @@ theorem spatial_stress_potential (Phi : ℝ) :
 
 -- The Volumetric Average operator acts as the symmetric spatial projection.
 -- Bundled as a LinearMap over ℝ.
+/-- The implemented linear map is symPart. Despite its historical name it is not integration, expectation, or a general spatial coarse-graining operation. -/
 noncomputable def VolAvg : T2 →ₗ[ℝ] T2 where
   toFun U := symPart U
   map_add' A B := by
@@ -430,39 +462,75 @@ theorem macroscopic_torsion_nullification (alpha_s alpha v_x v_y v_z Omega_x Ome
 
 -- 5.1 Spacetime Manifold & Continuous Fields
 -- We define continuous 4D spacetime natively as a mapping from 4 indices to Reals.
+/-- A single global coordinate space ℝ⁴. No connection, curvature, manifold atlas, or causal structure is supplied by this alias. -/
 abbrev SpaceTime := Fin 4 → ℝ
 
 -- Physical quantities are promoted from static scalars/tensors to dynamic fields.
+/-- An arbitrary real function on the fixed coordinate space; regularity must be supplied separately. -/
 abbrev ScalarField := SpaceTime → ℝ
+/-- An arbitrary coordinate-vector-valued function; no differentiability is implicit. -/
 abbrev VectorField := SpaceTime → SpaceTime
+/-- An arbitrary component-matrix-valued function. The alias does not impose symmetry, nondegeneracy, regularity, or conservation. -/
 abbrev MetricField := SpaceTime → T2
 
--- 5.2 Partial Derivatives & Covariant Divergence
--- We define a strict Partial Derivative operator (∂_μ).
+-- 5.2 Coordinate Partial Derivatives and Divergence
+/-- Coordinate derivative in the direction of the μ-th standard basis vector.
+For a classical derivative interpretation, the scalar field must be differentiable
+at `x`. No connection or covariant derivative is encoded here. -/
 noncomputable def partial_deriv (f : ScalarField) (μ : Fin 4) (x : SpaceTime) : ℝ :=
   (fderiv ℝ f x) (fun i => if i = μ then 1 else 0)
 
--- Computes ∂_μ U^μν natively by summing the partial derivatives of the matrix components.
+/-- Partial divergence of a component matrix in the fixed chart on ℝ⁴.
+This is not a general covariant divergence: there are no connection terms. -/
 noncomputable def metric_divergence (U : MetricField) (x : SpaceTime) : V4 :=
   fun ν => ∑ μ : Fin 4, partial_deriv (fun y => U y μ ν) μ x
 
--- 5.3 Geometric Conservation (The Fundamental Equation of Motion)
--- We postulate that the continuum metric is entirely divergence-free.
-axiom covariant_conservation (U : MetricField) (x : SpaceTime) :
-  metric_divergence U x = 0
+-- 5.3 Conditional Coordinate Conservation
+/-- The explicitly assumed coordinate-divergence constraint on an admissible field.
+It is not asserted for every `MetricField`, nor derived from equations of motion. -/
+def CoordinateConserved (U : MetricField) : Prop :=
+  ∀ x : SpaceTime, metric_divergence U x = 0
 
--- Projection into Fluid Dynamics (Bernoulli & Navier-Stokes)
-theorem bernoulli_energy_conservation (U : MetricField) (x : SpaceTime) :
+/-- Constant component fields satisfy the coordinate conservation constraint. -/
+theorem constant_coordinate_conserved (A : T2) :
+    CoordinateConserved (fun _ => A) := by
+  intro x
+  ext ν
+  simp [metric_divergence, partial_deriv]
+
+/-- The constraint has a nonempty class of solutions, independently of physical axioms. -/
+theorem exists_coordinate_conserved : ∃ U : MetricField, CoordinateConserved U :=
+  ⟨fun _ => 0, constant_coordinate_conserved 0⟩
+
+/-- The linear coordinate field is a counterexample to universal conservation. -/
+theorem coordinate_field_not_conserved :
+    ¬ CoordinateConserved (fun x _ _ => x 0) := by
+  intro h
+  have hd (μ : Fin 4) (x : SpaceTime) :
+      partial_deriv (fun y : SpaceTime => y 0) μ x =
+        if (0 : Fin 4) = μ then 1 else 0 := by
+    simp [partial_deriv, fderiv_apply]
+  have h1 : metric_divergence (fun x _ _ => x 0) 0 0 = 1 := by
+    simp [metric_divergence, hd]
+  have h0 := congrFun (h 0) 0
+  simp only [Pi.zero_apply] at h0
+  linarith
+
+/-- Time-component projection of an assumed coordinate-conservation law.
+This alone is not a derivation of Bernoulli's equation. -/
+theorem bernoulli_energy_conservation (U : MetricField)
+    (hU : CoordinateConserved U) (x : SpaceTime) :
     (metric_divergence U x) 0 = 0 := by
-  have h := covariant_conservation U x
-  rw [h]
+  rw [hU x]
   rfl
 
-theorem navier_stokes_momentum_conservation (U : MetricField) (x : SpaceTime) (i : Fin 4)
+/-- Spatial-component projection of an assumed coordinate-conservation law.
+This alone is not a derivation of the Navier–Stokes momentum PDE. -/
+theorem navier_stokes_momentum_conservation (U : MetricField)
+    (hU : CoordinateConserved U) (x : SpaceTime) (i : Fin 4)
     (_h_spatial : i ≠ 0) :
     (metric_divergence U x) i = 0 := by
-  have h := covariant_conservation U x
-  rw [h]
+  rw [hU x]
   rfl
 
 -- 5.4 The Dynamic Kinematic Fields
@@ -581,9 +649,10 @@ theorem transverse_divergence_link (x : SpaceTime) :
     mul_div_cancel_right₀ (partial_deriv (fun y => U_hat_dynamic y 2 1) 2 x + partial_deriv (fun y => U_hat_dynamic y 3 1) 3 x) Pc_non_zero
   rw [h_cancel]
 
--- THEOREM: The Exact Geometric Origin of Fluid Dynamics (Axiom-Free)
--- We prove that the fluid equations exactly map to the continuous geometric divergence.
--- (Upgraded to the exact nonlinear geometric pressure compliance, eliminating all approximations).
+/-- Rewrite an assumed zero coordinate-component derivative sum using the defined
+acceleration, pressure, and transverse-stress fields. This is conditional component
+algebra, not a derivation of a material-acceleration PDE. Its proof uses the six
+physical constant/positivity axioms, so it is not axiom-free. -/
 theorem geometric_navier_stokes (x : SpaceTime)
     (h_geometric_zero : partial_deriv (fun y => U_hat_dynamic y 0 1) 0 x + 
                         partial_deriv (fun y => U_hat_dynamic y 1 1) 1 x + 
@@ -613,11 +682,184 @@ theorem geometric_navier_stokes (x : SpaceTime)
 
 opaque epsilon_vec_f : VectorField
 
-noncomputable def lie_derivative (X : VectorField) (U : MetricField) (x : SpaceTime) : T2 :=
-  fun μ ν => ∑ α : Fin 4, (X x α) * partial_deriv (fun y => U y μ ν) α x
+/-- Componentwise directional transport in the fixed chart `SpaceTime = ℝ⁴`.
+This is only the first term of the Lie derivative of a covariant rank-two tensor. -/
+noncomputable def directional_transport (X : VectorField) (U : MetricField)
+    (x : SpaceTime) : T2 :=
+  fun μ ν => ∑ α : Fin 4, X x α * partial_deriv (fun y => U y μ ν) α x
 
-def is_translationally_symmetric (U : MetricField) (X : VectorField) (x : SpaceTime) : Prop :=
+/-- The coordinate formula for the Lie derivative of a `(0,2)` tensor (v9, Eq. 91).
+Both lower indices contribute with a plus sign; no symmetry of `U` is assumed.
+
+This is a fixed `ℝ⁴` chart, not a manifold/coordinate-change construction.
+As with `partial_deriv`, `fderiv` makes the definition total. Its classical
+interpretation at `x` requires every component of `X` and `U` to be differentiable
+there; `lie_derivative_eq_of_hasFDerivAt` records that interpretation explicitly.
+No classical derivative is claimed at a nondifferentiable point. -/
+noncomputable def lie_derivative (X : VectorField) (U : MetricField) (x : SpaceTime) : T2 :=
+  fun μ ν => directional_transport X U x μ ν +
+    (∑ α : Fin 4, U x α ν * partial_deriv (fun y => X y α) μ x) +
+    (∑ α : Fin 4, U x μ α * partial_deriv (fun y => X y α) ν x)
+
+/-- The full coordinate formula evaluated at explicitly supplied component derivatives. -/
+theorem lie_derivative_eq_of_hasFDerivAt (X : VectorField) (U : MetricField)
+    (x : SpaceTime) (dX : Fin 4 → SpaceTime →L[ℝ] ℝ)
+    (dU : Fin 4 → Fin 4 → SpaceTime →L[ℝ] ℝ)
+    (hX : ∀ α, HasFDerivAt (fun y => X y α) (dX α) x)
+    (hU : ∀ μ ν, HasFDerivAt (fun y => U y μ ν) (dU μ ν) x) :
+    lie_derivative X U x = fun μ ν =>
+      (∑ α : Fin 4, X x α * dU μ ν (fun i => if i = α then 1 else 0)) +
+      (∑ α : Fin 4, U x α ν * dX α (fun i => if i = μ then 1 else 0)) +
+      (∑ α : Fin 4, U x μ α * dX α (fun i => if i = ν then 1 else 0)) := by
+  ext μ ν
+  simp only [lie_derivative, directional_transport, partial_deriv, (hX _).fderiv,
+    (hU _ _).fderiv]
+
+/-- Invariance under an arbitrary specified vector field. -/
+def is_lie_invariant (U : MetricField) (X : VectorField) (x : SpaceTime) : Prop :=
   lie_derivative X U x = 0
+
+/-- Translation invariance uses a *constant* generator, not an arbitrary vector field. -/
+def is_translationally_symmetric (U : MetricField) (v : SpaceTime) (x : SpaceTime) : Prop :=
+  lie_derivative (fun _ => v) U x = 0
+
+@[simp] theorem partial_deriv_const (r : ℝ) (μ : Fin 4) (x : SpaceTime) :
+    partial_deriv (fun _ => r) μ x = 0 := by
+  simp [partial_deriv]
+
+@[simp] theorem directional_transport_const (X : VectorField) (U : T2) (x : SpaceTime) :
+    directional_transport X (fun _ => U) x = 0 := by
+  ext μ ν
+  simp [directional_transport]
+
+/-- Eq. 92: the two index terms vanish for constant translation generators.
+No differentiation rule for `U` is used, so this is also a totalized-operator identity. -/
+theorem lie_derivative_translation (v : SpaceTime) (U : MetricField) (x : SpaceTime) :
+    lie_derivative (fun _ => v) U x = directional_transport (fun _ => v) U x := by
+  ext μ ν
+  simp [lie_derivative]
+
+/-- Constant tensors are invariant under constant translations. -/
+theorem lie_derivative_const_translation (v : SpaceTime) (U : T2) (x : SpaceTime) :
+    lie_derivative (fun _ => v) (fun _ => U) x = 0 := by
+  rw [lie_derivative_translation, directional_transport_const]
+
+/-- The dilation generator with a constant rate. -/
+noncomputable def dilation_vector_field (σ : ℝ) : VectorField := fun x μ => σ * x μ
+
+@[simp] theorem partial_deriv_dilation (σ : ℝ) (α μ : Fin 4) (x : SpaceTime) :
+    partial_deriv (fun y => dilation_vector_field σ y α) μ x =
+      if α = μ then σ else 0 := by
+  unfold partial_deriv dilation_vector_field
+  rw [((hasFDerivAt_apply α x).const_mul σ).fderiv]
+  simp [smul_apply, ContinuousLinearMap.proj_apply, mul_ite]
+
+/-- Eq. 99, including the two lower-index terms, for arbitrary tensor components.
+The generator is differentiable by construction; a classical interpretation of
+its transport term additionally requires differentiable tensor components. -/
+theorem lie_derivative_dilation (σ : ℝ) (U : MetricField) (x : SpaceTime) :
+    lie_derivative (dilation_vector_field σ) U x =
+      directional_transport (dilation_vector_field σ) U x + (2 * σ) • U x := by
+  ext μ ν
+  simp [lie_derivative, mul_ite]
+  ring
+
+/-- A constant covariant rank-two tensor has dilation weight two. -/
+theorem lie_derivative_const_dilation (σ : ℝ) (U : T2) (x : SpaceTime) :
+    lie_derivative (dilation_vector_field σ) (fun _ => U) x = (2 * σ) • U := by
+  rw [lie_derivative_dilation, directional_transport_const, zero_add]
+
+/-- In particular, `X(x) = x` gives `L_X U = 2 U`, not zero. -/
+theorem lie_derivative_const_identity (U : T2) (x : SpaceTime) :
+    lie_derivative (fun y => y) (fun _ => U) x = (2 : ℝ) • U := by
+  have hX : dilation_vector_field 1 = (fun y => y) := by
+    funext y μ
+    simp [dilation_vector_field]
+  simpa only [hX, mul_one] using lie_derivative_const_dilation 1 U x
+
+/-- A constant mixed-index matrix defines a linear vector field `Xᵅ = Bᵅᵦ xᵝ`. -/
+noncomputable def linear_vector_field (B : T2) : VectorField :=
+  fun x α => ∑ β : Fin 4, B α β * x β
+
+@[simp] theorem partial_deriv_linear (B : T2) (α μ : Fin 4) (x : SpaceTime) :
+    partial_deriv (fun y => linear_vector_field B y α) μ x = B α μ := by
+  have h : HasFDerivAt (fun y : SpaceTime => ∑ β : Fin 4, B α β * y β)
+      (∑ β : Fin 4, B α β •
+        (ContinuousLinearMap.proj (R := ℝ) (φ := fun _ : Fin 4 => ℝ) β)) x := by
+    apply HasFDerivAt.fun_sum
+    intro β _
+    exact (hasFDerivAt_apply β x).const_mul (B α β)
+  unfold partial_deriv linear_vector_field
+  rw [h.fderiv]
+  simp [sum_apply, smul_apply,
+    ContinuousLinearMap.proj_apply, mul_ite]
+
+/-- Eq. 93 for a fixed linear generator, without assuming tensor symmetry. -/
+theorem lie_derivative_linear (B : T2) (U : MetricField) (x : SpaceTime) :
+    lie_derivative (linear_vector_field B) U x = fun μ ν =>
+      directional_transport (linear_vector_field B) U x μ ν +
+      (∑ α : Fin 4, U x α ν * B α μ) + (∑ α : Fin 4, U x μ α * B α ν) := by
+  ext μ ν
+  simp only [lie_derivative, partial_deriv_linear]
+
+/-- For a constant tensor the linear-generator residual is derived entirely
+from its two lower-index terms: in matrix notation, `Bᵀ U + U B`. -/
+theorem lie_derivative_const_linear (B U : T2) (x : SpaceTime) :
+    lie_derivative (linear_vector_field B) (fun _ => U) x = fun μ ν =>
+      (∑ α : Fin 4, U α ν * B α μ) + (∑ α : Fin 4, U μ α * B α ν) := by
+  ext μ ν
+  simp [lie_derivative_linear]
+
+/-- A boost in the `(0,i)` plane with mixed entries `B⁰ᵢ = Bⁱ₀ = b`.
+For `η = diag(-1,1,1,1)` the lowered paper parameter is `ω₀ᵢ = -b`. -/
+noncomputable def boost_matrix (b : ℝ) (i : Fin 4) : T2 :=
+  fun α β => (if α = 0 ∧ β = i then b else 0) +
+    (if α = i ∧ β = 0 then b else 0)
+
+noncomputable def boost_vector_field (b : ℝ) (i : Fin 4) : VectorField :=
+  linear_vector_field (boost_matrix b i)
+
+/-- The `(0,i)` boost residual for *any* constant covariant tensor. -/
+theorem lie_derivative_const_boost_zero_spatial (b : ℝ) (i : Fin 4) (hi : i ≠ 0)
+    (U : T2) (x : SpaceTime) :
+    lie_derivative (boost_vector_field b i) (fun _ => U) x 0 i =
+      b * (U i i + U 0 0) := by
+  rw [boost_vector_field, lie_derivative_const_linear]
+  simp [boost_matrix, hi, Ne.symm hi, mul_add, mul_ite]
+  ring
+
+/-- The constant diagonal symmetric tensor used for the restricted boost check. -/
+noncomputable def isotropic_covariant_tensor (a : ℝ) : T2 :=
+  Matrix.diagonal (fun μ : Fin 4 => if μ = 0 then -a^2 else 1 / a^2)
+
+/-- This diagonal tensor is exactly the existing symmetric sector, for arbitrary
+constant shear parameters. It does not assume a spacetime-varying field is constant. -/
+theorem U_sym_eq_isotropic_covariant_tensor
+    (a alpha v_x v_y v_z Omega_x Omega_y Omega_z t_p_val : ℝ) :
+    U_sym a alpha v_x v_y v_z Omega_x Omega_y Omega_z t_p_val =
+      isotropic_covariant_tensor a := by
+  ext μ ν
+  fin_cases μ <;> fin_cases ν <;>
+    simp [U_sym, symPart, U_hat, isotropic_covariant_tensor]
+
+/-- Eqs. 95–96 in the constant isotropic chart: this residual is computed from
+`lie_derivative`, rather than supplied as a hypothesis. No cancellation by `a`
+or nonzero premise is used; the physical nonsingular domain is addressed by `a > 0`
+in `lorentz_symmetry_broken`. -/
+theorem lie_derivative_isotropic_boost (b : ℝ) (i : Fin 4) (hi : i ≠ 0)
+    (a : ℝ) (x : SpaceTime) :
+    lie_derivative (boost_vector_field b i) (fun _ => isotropic_covariant_tensor a) x 0 i =
+      b * (1 / a^2 - a^2) := by
+  rw [lie_derivative_const_boost_zero_spatial b i hi]
+  simp [isotropic_covariant_tensor, hi, sub_eq_add_neg]
+
+/-- With the paper's lowered `ω₀ᵢ`, the same residual has the printed minus sign. -/
+theorem lie_derivative_isotropic_boost_lowered (omega_0i : ℝ) (i : Fin 4) (hi : i ≠ 0)
+    (a : ℝ) (x : SpaceTime) :
+    lie_derivative (boost_vector_field (-omega_0i) i)
+      (fun _ => isotropic_covariant_tensor a) x 0 i =
+      -omega_0i * (1 / a^2 - a^2) :=
+  lie_derivative_isotropic_boost (-omega_0i) i hi a x
 
 
 -- ==========================================
@@ -634,14 +876,19 @@ variable (M : ℝ)
 -- ==========================================
 -- 6.1 Unified Action
 -- ==========================================
--- PHASE 7 UPGRADE: The contraction is explicitly defined as the Frobenius inner product on T2.
+-- Legacy algebraic contraction: the Euclidean/Frobenius component product.
+-- It does not raise either index and is not the Lorentzian action scalar.
+-- The explicit frobenius_* names below preserve this valid algebra; the physical
+-- convention is implemented separately by lorentzian_action_density.
+
+/-- Frobenius component pairing ∑ᵢⱼ Aᵢⱼ Bᵢⱼ. This is not raised-index Lorentzian contraction; use contract2 with an explicit inverse metric for that operation. -/
 noncomputable def tensor_contract (A B : T2) : ℝ :=
   (A 0 0 * B 0 0) + (A 0 1 * B 0 1) + (A 0 2 * B 0 2) + (A 0 3 * B 0 3) +
   (A 1 0 * B 1 0) + (A 1 1 * B 1 1) + (A 1 2 * B 1 2) + (A 1 3 * B 1 3) +
   (A 2 0 * B 2 0) + (A 2 1 * B 2 1) + (A 2 2 * B 2 2) + (A 2 3 * B 2 3) +
   (A 3 0 * B 3 0) + (A 3 1 * B 3 1) + (A 3 2 * B 3 2) + (A 3 3 * B 3 3)
 
--- The orthogonality of the symmetric and antisymmetric states is now proven.
+-- Legacy Frobenius orthogonality for the concrete component matrix.
 theorem contract_sym_anti_proven (alpha_s alpha v_x v_y v_z Omega_x Omega_y Omega_z t_p_val : ℝ) :
     tensor_contract 
       (U_sym alpha_s alpha v_x v_y v_z Omega_x Omega_y Omega_z t_p_val) 
@@ -649,7 +896,10 @@ theorem contract_sym_anti_proven (alpha_s alpha v_x v_y v_z Omega_x Omega_y Omeg
   dsimp [tensor_contract, U_sym, U_anti, symPart, antiPart, U_hat, Matrix.of_apply]
   simp
 
--- All abstract hypotheses vanish. The physical action decomposes perfectly via native matrix algebra.
+-- Legacy Frobenius decomposition. This historical API name is retained for
+-- compatibility; use lorentzian_action_separation for the manuscript contraction.
+
+/-- Frobenius quadratic separation of the algebraic symmetric and antisymmetric projections. The historical action name does not by itself identify this pairing with the manuscript Lorentzian action. -/
 theorem unified_action_separation (alpha_s alpha v_x v_y v_z Omega_x Omega_y Omega_z t_p_val : ℝ) :
     tensor_contract 
       (U_hat alpha_s alpha v_x v_y v_z Omega_x Omega_y Omega_z t_p_val) 
@@ -673,6 +923,245 @@ theorem unified_action_separation (alpha_s alpha v_x v_y v_z Omega_x Omega_y Ome
   rw [h_expand]
   have h_zero := contract_sym_anti_proven alpha_s alpha v_x v_y v_z Omega_x Omega_y Omega_z t_p_val
   rw [h_zero]
+  ring
+
+
+/-- Explicit name for the legacy Euclidean/Frobenius component product. -/
+noncomputable abbrev frobenius_contract (A B : T2) : ℝ := tensor_contract A B
+
+-- Accurate aliases preserve all legacy theorem types.
+alias frobenius_sym_anti_orthogonality := contract_sym_anti_proven
+alias frobenius_action_separation := unified_action_separation
+
+-- 6.1.1 Background-Minkowski contraction: η = η⁻¹ = diag(-1,1,1,1).
+-- This is the g of manuscript p. 3 and the convention of Eqs. (121), (123).
+
+noncomputable def minkowskiSign (μ : Fin 4) : ℝ := if μ = 0 then -1 else 1
+
+noncomputable def minkowskiInv : T2 := fun μ ν => if μ = ν then minkowskiSign μ else 0
+
+lemma raiseBoth_minkowskiInv (A : T2) (μ ν : Fin 4) :
+    raiseBoth minkowskiInv A μ ν = minkowskiSign μ * minkowskiSign ν * A μ ν := by
+  simp [raiseBoth, minkowskiInv]
+
+lemma contract2_minkowskiInv_components (A B : T2) :
+    contract2 minkowskiInv A B =
+      A 0 0 * B 0 0 - A 0 1 * B 0 1 - A 0 2 * B 0 2 - A 0 3 * B 0 3 -
+      A 1 0 * B 1 0 + A 1 1 * B 1 1 + A 1 2 * B 1 2 + A 1 3 * B 1 3 -
+      A 2 0 * B 2 0 + A 2 1 * B 2 1 + A 2 2 * B 2 2 + A 2 3 * B 2 3 -
+      A 3 0 * B 3 0 + A 3 1 * B 3 1 + A 3 2 * B 3 2 + A 3 3 * B 3 3 := by
+  simp [contract2, raiseBoth_minkowskiInv, minkowskiSign, Fin.sum_univ_succ]
+  ring
+
+/-- Orthogonality of arbitrary symmetric and antisymmetric parts using the
+same two-index Minkowski contraction as the action. No U_hat ansatz is needed. -/
+
+lemma lorentzian_sym_anti_orthogonality (U V : T2) :
+    contract2 minkowskiInv (symPart U) (antiPart V) = 0 := by
+  rw [contract2_minkowskiInv_components]
+  dsimp [symPart, antiPart]
+  ring
+
+lemma lorentzian_matrix_action_separation (U : T2) :
+    contract2 minkowskiInv U U =
+      contract2 minkowskiInv (symPart U) (symPart U) +
+      contract2 minkowskiInv (antiPart U) (antiPart U) := by
+  simp only [contract2_minkowskiInv_components]
+  dsimp [symPart, antiPart]
+  ring
+
+/-- Exact coordinate identity. At zero admittance Lean totalizes division;
+this identity by itself does not describe a finite physical saturation limit. -/
+
+lemma symmetric_action_components (alpha_s alpha vx vy vz Ox Oy Oz tp : ℝ) :
+    contract2 minkowskiInv (U_sym alpha_s alpha vx vy vz Ox Oy Oz tp)
+      (U_sym alpha_s alpha vx vy vz Ox Oy Oz tp) = alpha_s^4 + 3 / alpha_s^4 := by
+  rw [contract2_minkowskiInv_components]
+  simp [U_sym, U_hat, symPart, Matrix.of_apply]
+  ring
+
+/-- Manuscript Eq. (121), on the physical nonzero-admittance domain.
+The component identity is algebraically totalized in symmetric_action_components. -/
+
+lemma symmetric_action_eq121 (alpha_s alpha vx vy vz Ox Oy Oz tp : ℝ)
+    (_has : alpha_s ≠ 0) :
+    contract2 minkowskiInv (U_sym alpha_s alpha vx vy vz Ox Oy Oz tp)
+      (U_sym alpha_s alpha vx vy vz Ox Oy Oz tp) = alpha_s^4 + 3 / alpha_s^4 := by
+  exact symmetric_action_components alpha_s alpha vx vy vz Ox Oy Oz tp
+
+lemma antisymmetric_action_components (alpha_s alpha vx vy vz Ox Oy Oz tp : ℝ) :
+    contract2 minkowskiInv (U_anti alpha_s alpha vx vy vz Ox Oy Oz tp)
+      (U_anti alpha_s alpha vx vy vz Ox Oy Oz tp) =
+      -2 * alpha^2 * (vx^2 + vy^2 + vz^2) / c^2 +
+      2 * alpha^2 * tp^2 * (Ox^2 + Oy^2 + Oz^2) := by
+  rw [contract2_minkowskiInv_components]
+  simp [U_anti, U_hat, antiPart, Matrix.of_apply]
+  ring
+
+-- 6.1.2 Explicit comoving frame already encoded by U_hat.
+-- These are LOWER-index covectors: u_0 = -1, while u^0 = 1.
+-- v_0 = 0 and ω_0ν = 0 make the required spatial orthogonality explicit.
+
+noncomputable def restCovector : V4 := ![-1, 0, 0, 0]
+
+noncomputable def restSpatialMetric : T2 := !![0,0,0,0; 0,1,0,0; 0,0,1,0; 0,0,0,1]
+
+noncomputable def spatialSlipCovector (vx vy vz : ℝ) : V4 := ![0, vx, vy, vz]
+
+noncomputable def spatialVorticity (Ox Oy Oz : ℝ) : T2 :=
+  !![0,0,0,0; 0,0,-Oz,Oy; 0,Oz,0,-Ox; 0,-Oy,Ox,0]
+
+noncomputable def minkowskiPair (u v : V4) : ℝ :=
+  ∑ μ : Fin 4, minkowskiSign μ * u μ * v μ
+
+/-- The manuscript's normalization and orthogonality constraints are proved
+for the selected frame, rather than added as scientific axioms. -/
+
+lemma rest_frame_constraints (vx vy vz Ox Oy Oz : ℝ) :
+    minkowskiPair restCovector restCovector = -1 ∧
+    minkowskiPair restCovector (spatialSlipCovector vx vy vz) = 0 ∧
+    (∀ ν, ∑ μ : Fin 4, minkowskiSign μ * restCovector μ * restSpatialMetric μ ν = 0) ∧
+    (∀ ν, ∑ μ : Fin 4, minkowskiSign μ * restCovector μ * spatialVorticity Ox Oy Oz μ ν = 0) := by
+  norm_num [minkowskiPair, restCovector, spatialSlipCovector, minkowskiSign,
+    restSpatialMetric, spatialVorticity, Fin.sum_univ_succ]
+  intro ν
+  fin_cases ν <;> rfl
+
+lemma rest_symmetric_covariant_form (as a vx vy vz Ox Oy Oz tp : ℝ) :
+    U_sym as a vx vy vz Ox Oy Oz tp = fun μ ν =>
+      -as^2 * restCovector μ * restCovector ν + 1 / as^2 * restSpatialMetric μ ν := by
+  ext μ ν
+  fin_cases μ <;> fin_cases ν <;>
+    simp [U_sym, U_hat, symPart, restCovector, restSpatialMetric, Matrix.of_apply]
+
+lemma rest_antisymmetric_covariant_form (as a vx vy vz Ox Oy Oz tp : ℝ) :
+    U_anti as a vx vy vz Ox Oy Oz tp = fun μ ν =>
+      a / c * (restCovector μ * spatialSlipCovector vx vy vz ν -
+        restCovector ν * spatialSlipCovector vx vy vz μ) + a * tp * spatialVorticity Ox Oy Oz μ ν := by
+  ext μ ν
+  fin_cases μ <;> fin_cases ν <;>
+    simp [U_anti, U_hat, antiPart, restCovector, spatialSlipCovector, spatialVorticity, Matrix.of_apply] <;> ring
+
+lemma spatial_vorticity_contraction (Ox Oy Oz : ℝ) :
+    contract2 minkowskiInv (spatialVorticity Ox Oy Oz) (spatialVorticity Ox Oy Oz) =
+      2 * (Ox^2 + Oy^2 + Oz^2) := by
+  rw [contract2_minkowskiInv_components]
+  simp [spatialVorticity]
+  ring
+
+lemma spatial_slip_norm (vx vy vz : ℝ) :
+    minkowskiPair (spatialSlipCovector vx vy vz) (spatialSlipCovector vx vy vz) =
+      vx^2 + vy^2 + vz^2 := by
+  simp [minkowskiPair, minkowskiSign, spatialSlipCovector, Fin.sum_univ_succ]
+  ring
+
+/-- Manuscript Eq. (123) for U_hat's explicit comoving frame.
+spatial_slip_norm gives v_perp²; spatial_vorticity_contraction fixes ω's
+normalization as 2(Ω_x² + Ω_y² + Ω_z²), without an extra hidden factor. -/
+
+lemma antisymmetric_action_eq123 (as a vx vy vz Ox Oy Oz tp : ℝ) :
+    contract2 minkowskiInv (U_anti as a vx vy vz Ox Oy Oz tp)
+      (U_anti as a vx vy vz Ox Oy Oz tp) =
+      -2 * a^2 * minkowskiPair (spatialSlipCovector vx vy vz) (spatialSlipCovector vx vy vz) / c^2 +
+      a^2 * tp^2 * contract2 minkowskiInv (spatialVorticity Ox Oy Oz) (spatialVorticity Ox Oy Oz) := by
+  rw [antisymmetric_action_components, spatial_slip_norm, spatial_vorticity_contraction]
+  ring
+
+-- 6.1.3 Sign witnesses: time-space shear is negative, spatial shear positive.
+
+noncomputable def electricBivector (e : ℝ) : T2 :=
+  !![0,e,0,0; -e,0,0,0; 0,0,0,0; 0,0,0,0]
+
+noncomputable def magneticBivector (b : ℝ) : T2 :=
+  !![0,0,0,0; 0,0,b,0; 0,-b,0,0; 0,0,0,0]
+
+lemma electric_lorentzian_contraction (e : ℝ) :
+    contract2 minkowskiInv (electricBivector e) (electricBivector e) = -2 * e^2 := by
+  rw [contract2_minkowskiInv_components]
+  simp [electricBivector]
+  ring
+
+lemma magnetic_lorentzian_contraction (b : ℝ) :
+    contract2 minkowskiInv (magneticBivector b) (magneticBivector b) = 2 * b^2 := by
+  rw [contract2_minkowskiInv_components]
+  simp [magneticBivector]
+  ring
+
+lemma pure_electric_negative (e : ℝ) (he : e ≠ 0) :
+    contract2 minkowskiInv (electricBivector e) (electricBivector e) < 0 := by
+  rw [electric_lorentzian_contraction]
+  nlinarith [sq_pos_of_ne_zero he]
+
+lemma pure_magnetic_positive (b : ℝ) (hb : b ≠ 0) :
+    0 < contract2 minkowskiInv (magneticBivector b) (magneticBivector b) := by
+  rw [magnetic_lorentzian_contraction]
+  exact mul_pos (by norm_num) (sq_pos_of_ne_zero hb)
+
+-- 6.1.4 The separate p. 56 measurement raises ONE index with S⁻¹.
+-- It is not the background-η quadratic action contraction.
+
+noncomputable def raiseFirst (gInv A : T2) : T2 :=
+  fun μ ν => ∑ ρ : Fin 4, gInv μ ρ * A ρ ν
+
+/-- Candidate inverse of U_sym. The inverse identity below requires as ≠ 0;
+its totalized value at zero is not an inverse or a physical limiting value. -/
+
+noncomputable def symmetricMetricInv (as : ℝ) : T2 :=
+  !![-1/as^2,0,0,0; 0,as^2,0,0; 0,0,as^2,0; 0,0,0,as^2]
+
+lemma symmetricMetricInv_left_inverse (as a vx vy vz Ox Oy Oz tp : ℝ) (has : as ≠ 0) :
+    symmetricMetricInv as * U_sym as a vx vy vz Ox Oy Oz tp = 1 := by
+  ext μ ν
+  fin_cases μ <;> fin_cases ν <;>
+    simp [Matrix.mul_apply, Fin.sum_univ_succ, symmetricMetricInv, U_sym, U_hat, symPart, Matrix.of_apply, has]
+
+lemma mixed_electric_measurement (as a vx vy vz Ox Oy Oz tp : ℝ) :
+    raiseFirst (symmetricMetricInv as) (U_anti as a vx vy vz Ox Oy Oz tp) 0 1 =
+      (a / as^2) * (vx / c) := by
+  simp [raiseFirst, Fin.sum_univ_succ, symmetricMetricInv, U_anti, U_hat, antiPart, Matrix.of_apply]
+  ring
+
+lemma mixed_magnetic_measurement (as a vx vy vz Ox Oy Oz tp : ℝ) :
+    raiseFirst (symmetricMetricInv as) (U_anti as a vx vy vz Ox Oy Oz tp) 1 2 =
+      -(a * as^2) * tp * Oz := by
+  simp [raiseFirst, Fin.sum_univ_succ, symmetricMetricInv, U_anti, U_hat, antiPart, Matrix.of_apply]
+  ring
+
+-- η is its own inverse; restSpatialMetric is h = η + u ⊗ u.
+
+lemma minkowskiInv_sq : minkowskiInv * minkowskiInv = (1 : T2) := by
+  ext μ ν
+  fin_cases μ <;> fin_cases ν <;>
+    norm_num [Matrix.mul_apply, Fin.sum_univ_succ, minkowskiInv, minkowskiSign]
+
+lemma restSpatialMetric_eq_background_projector :
+    restSpatialMetric = fun μ ν => minkowskiInv μ ν + restCovector μ * restCovector ν := by
+  ext μ ν
+  fin_cases μ <;> fin_cases ν <;> norm_num [restSpatialMetric, minkowskiInv, minkowskiSign, restCovector]
+
+-- 6.1.5 Dimensionless quadratic action scalar used in Eqs. (65)-(66).
+-- No spacetime integral or Euler-Lagrange variation is asserted here.
+
+noncomputable def lorentzian_action_density (U : T2) : ℝ := contract2 minkowskiInv U U
+
+lemma lorentzian_action_separation (as a vx vy vz Ox Oy Oz tp : ℝ) :
+    lorentzian_action_density (U_hat as a vx vy vz Ox Oy Oz tp) =
+      lorentzian_action_density (U_sym as a vx vy vz Ox Oy Oz tp) +
+      lorentzian_action_density (U_anti as a vx vy vz Ox Oy Oz tp) := by
+  exact lorentzian_matrix_action_separation _
+
+/-- Exact pressure normalization from the first line of Eq. (124).
+No weak-field Taylor approximation, mass derivation, or field equation is used. -/
+
+noncomputable def kinematic_lagrangian_density (U : T2) : ℝ :=
+  (1 / 4) * P_c * (lorentzian_action_density U - 4)
+
+lemma kinematic_lagrangian_separation (U : T2) :
+    kinematic_lagrangian_density U =
+      (1 / 4) * P_c * (lorentzian_action_density (symPart U) - 4) +
+      (1 / 4) * P_c * lorentzian_action_density (antiPart U) := by
+  unfold kinematic_lagrangian_density lorentzian_action_density
+  rw [lorentzian_matrix_action_separation]
   ring
 
 -- ==========================================
@@ -780,10 +1269,11 @@ theorem unified_wave_propagation (alpha_s alpha v_x v_y v_z Omega_x Omega_y Omeg
 -- ==========================================
 -- 7.1 The Poincare Subgroup (10 Generators)
 
--- The abstract Lie translation and dilation axioms have been replaced by concrete 
--- definitions of `lie_derivative` and `is_translationally_symmetric` in Section 5.7. 
--- The specific invariance theorems that these axioms once assumed are now statable 
--- against `U_hat_dynamic` and remain open.
+-- Section 5.7 implements the complete fixed-chart covariant rank-two Lie derivative.
+-- Translation, dilation and linear-generator identities are proved there (v9 Eqs. 91–99).
+-- The boost result below is restricted to a constant isotropic symmetric tensor,
+-- with positive admittance and a nonzero generator. It does not establish generic
+-- invariance/breaking for `U_hat_dynamic`, conformal fields, or arbitrary charts.
 
 variable (alpha_s_val : ℝ)
 
@@ -822,11 +1312,18 @@ lemma isolate_lorentz_scalar (omega_0i alpha_val : ℝ) (h_omega : omega_0i ≠ 
   | inl hl => linarith
   | inr hr => linarith
 
--- Theorem 20: Lorentz Boost Symmetry Limit
-theorem lorentz_symmetry_broken (omega_0i : ℝ) (h_nonzero : omega_0i ≠ 0) (h_pos : alpha_s_val > 0)
-    (h_residual : omega_0i * ((1 / alpha_s_val^2) - alpha_s_val^2) = 0) :
+-- Theorem 20: restricted Lorentz boost symmetry limit, derived from the operator.
+-- Unlike the former scalar-residual premise, `h_invariant` states actual tensor
+-- invariance. The residual is obtained from its (0,i) component using Section 5.7.
+theorem lorentz_symmetry_broken (b : ℝ) (h_nonzero : b ≠ 0) (h_pos : alpha_s_val > 0)
+    (i : Fin 4) (hi : i ≠ 0) (x : SpaceTime)
+    (h_invariant : lie_derivative (boost_vector_field b i)
+      (fun _ => isotropic_covariant_tensor alpha_s_val) x = 0) :
     alpha_s_val = 1 := by
-  exact isolate_lorentz_scalar omega_0i alpha_s_val h_nonzero h_pos h_residual
+  apply isolate_lorentz_scalar b alpha_s_val h_nonzero h_pos
+  have h := congrFun (congrFun h_invariant 0) i
+  rw [lie_derivative_isotropic_boost b i hi] at h
+  exact h
 
 -- ==========================================
 -- 7.2 Dilation & Special Conformal Transformations
@@ -1376,6 +1873,10 @@ theorem tully_fisher_algebra (v_rot a_0 G_val M_bar : ℝ)
 
 -- Theorem 44: Derivation of the Baryonic Tully-Fisher Relation (Equation 133 / 11.6)
 variable (a_0 M_bar : ℝ)
+/-- Square the assumed plateau relation `h_plateau` to obtain the displayed
+fourth-power identity. Assumes positive a_0, nonnegative M_bar and v_rot, and uses
+the defined G with its positivity proof. No galactic coupling or dynamics is
+derived by this algebraic implication. -/
 theorem baryonic_tully_fisher_derivation (v_rot : ℝ)
     (ha : a_0 > 0) (hM : M_bar ≥ 0) (_hv : v_rot ≥ 0)
     (h_plateau : v_rot^2 = a_0 * Real.sqrt (G * M_bar / a_0)) :
@@ -1657,6 +2158,7 @@ lemma action_constant_identity (hc : (0 : ℝ) < c) (hm : m > 0) (_hr : r > 0)
     exact h_kappa_c2
   exact h_final
 
+/-- Scalar inverse-square expression ℏc/r². At r = 0 Lean totalizes division; a physical interpretation must restrict the domain and justify its force model. -/
 noncomputable def F_fund (r : ℝ) : ℝ := (hbar * c) / r^2
 
 -- Theorem 53: The Fundamental Force Limit (Equation 176 / 14.3)
@@ -1721,9 +2223,13 @@ theorem interaction_hierarchy_strong (L_crit : ℝ) (_hm_e : m_e ≠ 0) (_h_alph
   rw [h_final, div_self hbar_ne, mul_one]
 
 -- IV. Electromagnetism (The Transverse Leakage)
+-- Manuscript v9, p. 48, Eq. (224): this is the unscaled electromagnetic
+-- baseline F_EMbase = F_fund(a_0), with no extra factor of alpha_em.
+-- Nonzero mass and coupling specify the domain of the radius substitution;
+-- Lean's totalized division at zero is not a physical boundary condition.
 theorem interaction_hierarchy_em (a_0_val : ℝ) (_hm_e : m_e ≠ 0) (_h_alpha : alpha_em ≠ 0)
     (h_a_0 : a_0_val = hbar / (alpha_em * m_e * c)) :
-    alpha_em * F_fund a_0_val = (alpha_em^3 * m_e^2 * c^3) / hbar := by
+    F_fund a_0_val = (alpha_em^2 * m_e^2 * c^3) / hbar := by
   have hbar_ne : hbar ≠ 0 := ne_of_gt hbar_pos
   dsimp [F_fund]
   rw [h_a_0]
@@ -1731,14 +2237,49 @@ theorem interaction_hierarchy_em (a_0_val : ℝ) (_hm_e : m_e ≠ 0) (_h_alpha :
   rw [h_pow]
   have h_pull : (hbar * c) / (hbar^2 / (alpha_em * m_e * c)^2) = (hbar * c * (alpha_em * m_e * c)^2) / hbar^2 := div_div_eq_mul_div _ _ _
   rw [h_pull]
-  have h_num : alpha_em * ((hbar * c * (alpha_em * m_e * c)^2) / hbar^2) = (hbar * (alpha_em^3 * m_e^2 * c^3)) / (hbar * hbar) := by
-    have step1 : hbar * c * (alpha_em * m_e * c)^2 = hbar * (alpha_em^2 * m_e^2 * c^3) := by ring
-    have step2 : hbar^2 = hbar * hbar := by ring
-    rw [step1, step2]
-    ring
-  rw [h_num]
-  have h_final : (hbar * (alpha_em^3 * m_e^2 * c^3)) / (hbar * hbar) = ((alpha_em^3 * m_e^2 * c^3) / hbar) * (hbar / hbar) := by ring
+  have h_num : hbar * c * (alpha_em * m_e * c)^2 = hbar * (alpha_em^2 * m_e^2 * c^3) := by ring
+  have h_den : hbar^2 = hbar * hbar := by ring
+  rw [h_num, h_den]
+  have h_final : (hbar * (alpha_em^2 * m_e^2 * c^3)) / (hbar * hbar) = ((alpha_em^2 * m_e^2 * c^3) / hbar) * (hbar / hbar) := by ring
   rw [h_final, div_self hbar_ne, mul_one]
+
+-- The baseline/strong ratio stated immediately after Eq. (224).
+-- Both radii and the strong-force denominator are nonzero on this domain.
+theorem interaction_hierarchy_em_strong_ratio (a_0_val L_crit : ℝ)
+    (hm_e : m_e ≠ 0) (h_alpha : alpha_em ≠ 0)
+    (h_a_0 : a_0_val = hbar / (alpha_em * m_e * c))
+    (h_L_crit : L_crit = (alpha_em * hbar) / (m_e * c)) :
+    F_fund a_0_val / F_fund L_crit = alpha_em^4 := by
+  rw [interaction_hierarchy_em m_e alpha_em a_0_val hm_e h_alpha h_a_0,
+    interaction_hierarchy_strong m_e alpha_em L_crit hm_e h_alpha h_L_crit]
+  have hc_ne : c ≠ 0 := ne_of_gt c_pos
+  have hbar_ne : hbar ≠ 0 := ne_of_gt hbar_pos
+  field_simp [hm_e, h_alpha, hc_ne, hbar_ne]
+
+-- Optional algebraic rescaling of Eq. (224), retained from the former
+-- interaction_hierarchy_em statement. Multiplication by alpha_em is an
+-- additional operation, not the manuscript's baseline or a derived physical
+-- coupling law. See docs/force-hierarchy.md for the manuscript correspondence.
+theorem interaction_hierarchy_em_scaled_algebra (a_0_val : ℝ)
+    (hm_e : m_e ≠ 0) (h_alpha : alpha_em ≠ 0)
+    (h_a_0 : a_0_val = hbar / (alpha_em * m_e * c)) :
+    alpha_em * F_fund a_0_val = (alpha_em^3 * m_e^2 * c^3) / hbar := by
+  rw [interaction_hierarchy_em m_e alpha_em a_0_val hm_e h_alpha h_a_0]
+  ring
+
+-- The optional rescaling changes the ratio to alpha_em^5, not alpha_em^4.
+theorem interaction_hierarchy_em_scaled_strong_ratio (a_0_val L_crit : ℝ)
+    (hm_e : m_e ≠ 0) (h_alpha : alpha_em ≠ 0)
+    (h_a_0 : a_0_val = hbar / (alpha_em * m_e * c))
+    (h_L_crit : L_crit = (alpha_em * hbar) / (m_e * c)) :
+    (alpha_em * F_fund a_0_val) / F_fund L_crit = alpha_em^5 := by
+  calc
+    (alpha_em * F_fund a_0_val) / F_fund L_crit =
+        alpha_em * (F_fund a_0_val / F_fund L_crit) := by ring
+    _ = alpha_em * alpha_em^4 := by
+      rw [interaction_hierarchy_em_strong_ratio m_e alpha_em a_0_val L_crit
+        hm_e h_alpha h_a_0 h_L_crit]
+    _ = alpha_em^5 := by ring
 
 -- 14.5 The Macroscopic Baseline (The Horizon Floor)
 variable (a_0 F_R_h m_h h_val R_h_0 : ℝ)
@@ -1889,35 +2430,201 @@ theorem refractive_index_substitution (r_val ct_val : ℝ) (hPc : P_c > 0) :
 -- 15.4 The Longitudinal Path Integral (Shapiro Delay)
 -- ==========================================
 
+/-!
+The following results are conditional on the exponential pressure ansatz in
+manuscript v9 Eqs. (235)-(237). `L` is a positive scale held fixed along the
+path. The domain is any finite interval `[0, r]` with `r ≥ 0`; no physical
+horizon identification or boundary saturation is assumed or established.
+See `docs/optical-path.md` for the physical and mathematical scope.
+-/
+
+/-- Refractive index of the stated exponential ansatz, used on `s ≥ 0`, `L > 0`.
+Its denominator is proved positive on this domain below. -/
+noncomputable def exponential_refractive_index (L s : ℝ) : ℝ :=
+  1 / (Real.exp (-s / L) * (2 - Real.exp (-s / L)))
+
+lemma exponential_denominator_pos (L s : ℝ) (hL : 0 < L) (hs : 0 ≤ s) :
+    0 < Real.exp (-s / L) * (2 - Real.exp (-s / L)) := by
+  have he : Real.exp (-s / L) ≤ 1 := Real.exp_le_one_iff.mpr
+    (div_nonpos_of_nonpos_of_nonneg (neg_nonpos.mpr hs) hL.le)
+  exact mul_pos (Real.exp_pos _) (by linarith)
+
+lemma exponential_refractive_index_one_le (L s : ℝ) (hL : 0 < L) (hs : 0 ≤ s) :
+    1 ≤ exponential_refractive_index L s := by
+  unfold exponential_refractive_index
+  apply (le_div_iff₀ (exponential_denominator_pos L s hL hs)).mpr
+  nlinarith [sq_nonneg (1 - Real.exp (-s / L))]
+
+lemma exponential_refractive_index_one_lt (L s : ℝ) (hL : 0 < L) (hs : 0 < s) :
+    1 < exponential_refractive_index L s := by
+  have he : Real.exp (-s / L) < 1 := Real.exp_lt_one_iff.mpr
+    (div_neg_of_neg_of_pos (neg_neg_of_pos hs) hL)
+  unfold exponential_refractive_index
+  apply (lt_div_iff₀ (exponential_denominator_pos L s hL hs.le)).mpr
+  nlinarith [sq_pos_of_pos (sub_pos.mpr he)]
+
+lemma exponential_refractive_index_continuousOn (L : ℝ) (hL : 0 < L) :
+    ContinuousOn (exponential_refractive_index L) (Set.Ici 0) := by
+  unfold exponential_refractive_index
+  have he : Continuous (fun s : ℝ => Real.exp (-s / L)) :=
+    Real.continuous_exp.comp (continuous_id.neg.div_const L)
+  apply continuousOn_const.div (he.continuousOn.mul (continuousOn_const.sub he.continuousOn))
+  intro s hs
+  exact ne_of_gt (exponential_denominator_pos L s hL hs)
+
+/-- Finite radial optical path, manuscript v9 Eq. (238).
+The accompanying results establish integrability when `L > 0` and `r ≥ 0`. -/
+noncomputable def optical_distance (L r : ℝ) : ℝ :=
+  ∫ s in (0 : ℝ)..r, exponential_refractive_index L s
+
+lemma exponential_refractive_index_intervalIntegrable (L r : ℝ) (hL : 0 < L)
+    (hr : 0 ≤ r) :
+    IntervalIntegrable (exponential_refractive_index L) MeasureTheory.volume 0 r := by
+  apply ContinuousOn.intervalIntegrable_of_Icc hr
+  exact (exponential_refractive_index_continuousOn L hL).mono
+    (fun _ hs => hs.1)
+
+/-- The actual optical integral strictly exceeds every positive path length.
+The equality `n(0) = 1` is harmless: strictness holds at positive radius. -/
+theorem optical_distance_gt (L r : ℝ) (hL : 0 < L) (hr : 0 < r) :
+    r < optical_distance L r := by
+  have hstrict := intervalIntegral.integral_lt_integral_of_continuousOn_of_le_of_exists_lt
+    hr continuousOn_const
+    ((exponential_refractive_index_continuousOn L hL).mono
+      (show Set.Icc 0 r ⊆ Set.Ici 0 from fun _ hs => hs.1))
+    (fun s hs => exponential_refractive_index_one_le L s hL hs.1.le)
+    ⟨r, ⟨hr.le, le_rfl⟩, exponential_refractive_index_one_lt L r hL hr⟩
+  simpa [optical_distance] using hstrict
+
+/-- The coordinate-speed model `c₀ / n(s)`, with positive baseline speed `c₀`.
+This is a model definition, not a derivation of a null-geodesic equation. -/
+noncomputable def refractive_speed (L c₀ s : ℝ) : ℝ :=
+  c₀ / exponential_refractive_index L s
+
+/-- Travel time obtained by integrating inverse speed along the same radial path. -/
+noncomputable def refractive_travel_time (L c₀ r : ℝ) : ℝ :=
+  ∫ s in (0 : ℝ)..r, 1 / refractive_speed L c₀ s
+
+theorem refractive_travel_time_eq (L c₀ r : ℝ) :
+    refractive_travel_time L c₀ r = optical_distance L r / c₀ := by
+  simp only [refractive_travel_time, refractive_speed, one_div_div,
+    intervalIntegral.integral_div, optical_distance]
+
+lemma refractive_travel_time_intervalIntegrable (L c₀ r : ℝ) (hL : 0 < L)
+    (hr : 0 ≤ r) :
+    IntervalIntegrable (fun s => 1 / refractive_speed L c₀ s) MeasureTheory.volume 0 r := by
+  simpa only [refractive_speed, one_div_div] using
+    (exponential_refractive_index_intervalIntegrable L r hL hr).div_const c₀
+
+/-- Positive accumulated delay relative to travel at the constant baseline speed.
+This establishes the finite-path consequence of the ansatz, not agreement with
+an observed Shapiro delay or a gravitational-field model. -/
+theorem refractive_travel_time_delay_pos (L c₀ r : ℝ) (hL : 0 < L)
+    (hc : 0 < c₀) (hr : 0 < r) :
+    0 < refractive_travel_time L c₀ r - r / c₀ := by
+  rw [refractive_travel_time_eq, ← sub_div]
+  exact div_pos (sub_pos.mpr (optical_distance_gt L r hL hr)) hc
+
+@[simp] theorem exponential_refractive_index_zero (L : ℝ) :
+    exponential_refractive_index L 0 = 1 := by
+  norm_num [exponential_refractive_index]
+
+@[simp] theorem optical_distance_zero (L : ℝ) : optical_distance L 0 = 0 := by
+  simp [optical_distance]
+
+@[simp] theorem refractive_travel_time_zero (L c₀ : ℝ) :
+    refractive_travel_time L c₀ 0 = 0 := by
+  simp [refractive_travel_time]
+
+lemma refractive_speed_pos (L c₀ s : ℝ) (hL : 0 < L) (hc : 0 < c₀)
+    (hs : 0 ≤ s) : 0 < refractive_speed L c₀ s := by
+  apply div_pos hc
+  exact lt_of_lt_of_le (by norm_num) (exponential_refractive_index_one_le L s hL hs)
+
+lemma refractive_speed_lt (L c₀ s : ℝ) (hL : 0 < L) (hc : 0 < c₀)
+    (hs : 0 < s) : refractive_speed L c₀ s < c₀ := by
+  have hn := exponential_refractive_index_one_lt L s hL hs
+  apply (div_lt_iff₀ (lt_trans (by norm_num) hn)).mpr
+  nlinarith
+
+lemma refractive_speed_eq_ansatz (L c₀ s : ℝ) :
+    refractive_speed L c₀ s = c₀ * (1 - (1 - Real.exp (-s / L)) ^ 2) := by
+  unfold refractive_speed exponential_refractive_index
+  simp only [one_div, div_inv_eq_mul]
+  ring
+
+lemma exponential_refractive_index_eq_ansatz (L s : ℝ) :
+    exponential_refractive_index L s = 1 / (1 - (1 - Real.exp (-s / L)) ^ 2) := by
+  unfold exponential_refractive_index
+  congr 1
+  ring
+
 -- ==========================================
 -- 15.5 The Magnitude Anomaly (Optical Expansion)
 -- ==========================================
 variable (mu_obs mu_lin r_opt r_true z_val : ℝ)
 
-lemma logarithmic_magnitude_anomaly (mu_o mu_l r_o r_t z : ℝ) (hr_o : r_o > 0) (hr_t : r_t > 0) (hz : (1 + z) > 0) :
-  mu_o = 5 * Real.log (r_o * (1 + z)) + 25 →
-  mu_l = 5 * Real.log (r_t * (1 + z)) + 25 →
-  mu_o - mu_l = 5 * Real.log (r_o / r_t) := by
-  intro h_o h_l
-  have h1 : mu_o - mu_l = 5 * (Real.log (r_o * (1 + z)) - Real.log (r_t * (1 + z))) := by
-    calc
-      mu_o - mu_l = (5 * Real.log (r_o * (1 + z)) + 25) - (5 * Real.log (r_t * (1 + z)) + 25) := by rw [h_o, h_l]
-      _ = 5 * (Real.log (r_o * (1 + z)) - Real.log (r_t * (1 + z))) := by ring
-  have h_log_sub : Real.log (r_o * (1 + z)) - Real.log (r_t * (1 + z)) = Real.log ((r_o * (1 + z)) / (r_t * (1 + z))) := by
-    exact (Real.log_div (mul_ne_zero (ne_of_gt hr_o) (ne_of_gt hz)) (mul_ne_zero (ne_of_gt hr_t) (ne_of_gt hz))).symm
-  rw [h_log_sub] at h1
-  have h_cancel : (r_o * (1 + z)) / (r_t * (1 + z)) = r_o / r_t := by
-    have hz_ne : (1 + z) ≠ 0 := ne_of_gt hz
-    exact mul_div_mul_right r_o r_t hz_ne
-  rw [h_cancel] at h1
-  exact h1
+/-- Base-10 logarithm, written by change of base to make the normalization explicit. -/
+noncomputable def decimalLog (x : ℝ) : ℝ := Real.log x / Real.log 10
 
--- Theorem 59: The Optical Expansion Anomaly (Dark Energy) (Equation 198 / 15.5)
-theorem magnitude_anomaly_divergence (hr_o : r_opt > 0) (hr_t : r_true > 0) (hz : (1 + z_val) > 0)
-    (h_mu_obs : mu_obs = 5 * Real.log (r_opt * (1 + z_val)) + 25)
-    (h_mu_lin : mu_lin = 5 * Real.log (r_true * (1 + z_val)) + 25) :
-    mu_obs - mu_lin = 5 * Real.log (r_opt / r_true) := by
-  exact logarithmic_magnitude_anomaly mu_obs mu_lin r_opt r_true z_val hr_o hr_t hz h_mu_obs h_mu_lin
+/-- Difference of distance moduli for positive distances measured in megaparsecs.
+The logarithm arguments represent dimensionless numerical ratios to 1 Mpc;
+the offset 25 converts to the conventional 10 pc reference distance.
+The common redshift factor cancels; this is conditional algebra, not a proof
+that an optical path exceeds the true distance. The final ratio is dimensionless. -/
+lemma logarithmic_magnitude_anomaly (mu_o mu_l r_o r_t z : ℝ)
+    (hr_o : r_o > 0) (hr_t : r_t > 0) (hz : (1 + z) > 0) :
+    mu_o = 5 * decimalLog (r_o * (1 + z)) + 25 →
+    mu_l = 5 * decimalLog (r_t * (1 + z)) + 25 →
+    mu_o - mu_l = 5 * decimalLog (r_o / r_t) := by
+  intro h_o h_l
+  rw [h_o, h_l]
+  unfold decimalLog
+  rw [Real.log_mul (ne_of_gt hr_o) (ne_of_gt hz),
+    Real.log_mul (ne_of_gt hr_t) (ne_of_gt hz),
+    Real.log_div (ne_of_gt hr_o) (ne_of_gt hr_t)]
+  ring
+
+/-- A tenfold distance ratio produces exactly five magnitudes. -/
+theorem tenfold_distance_magnitude_anomaly :
+    5 * decimalLog 10 = 5 := by
+  have h : Real.log (10 : ℝ) ≠ 0 := ne_of_gt (Real.log_pos (by norm_num))
+  simp [decimalLog, h]
+
+/-- Conditional base-10 distance-modulus identity matching manuscript v9 Eq. (239).
+Distances are positive numerical values in Mpc. This statement does not assert
+an optical-distance inequality or divergence as a limit. -/
+theorem magnitude_anomaly_divergence
+    (hr_o : r_opt > 0) (hr_t : r_true > 0) (hz : (1 + z_val) > 0)
+    (h_mu_obs : mu_obs = 5 * decimalLog (r_opt * (1 + z_val)) + 25)
+    (h_mu_lin : mu_lin = 5 * decimalLog (r_true * (1 + z_val)) + 25) :
+    mu_obs - mu_lin = 5 * decimalLog (r_opt / r_true) := by
+  exact logarithmic_magnitude_anomaly mu_obs mu_lin r_opt r_true z_val
+    hr_o hr_t hz h_mu_obs h_mu_lin
+
+/-- The actual finite optical path gives a strictly positive base-10 magnitude
+anomaly. Both distances use the same units, so their ratio is dimensionless. -/
+theorem optical_magnitude_anomaly_pos (L r : ℝ) (hL : 0 < L) (hr : 0 < r) :
+    0 < 5 * decimalLog (optical_distance L r / r) := by
+  have hratio : 1 < optical_distance L r / r := by
+    apply (lt_div_iff₀ hr).mpr
+    simpa using optical_distance_gt L r hL hr
+  exact mul_pos (by norm_num)
+    (div_pos (Real.log_pos hratio) (Real.log_pos (by norm_num)))
+
+/-- Eq. (239), now connected to the defined optical integral rather than two
+arbitrary distances. The distance-modulus prescriptions remain explicit
+hypotheses; positivity follows from the ansatz and `L > 0`, `r > 0`.
+Distances in the hypotheses are numerical values in Mpc, as above. -/
+theorem magnitude_anomaly_of_optical_path (mu_o mu_l L r z : ℝ)
+    (hL : 0 < L) (hr : 0 < r) (hz : 0 < 1 + z)
+    (ho : mu_o = 5 * decimalLog (optical_distance L r * (1 + z)) + 25)
+    (hl : mu_l = 5 * decimalLog (r * (1 + z)) + 25) :
+    mu_o - mu_l = 5 * decimalLog (optical_distance L r / r) ∧ 0 < mu_o - mu_l := by
+  have hpath : 0 < optical_distance L r := lt_trans hr (optical_distance_gt L r hL hr)
+  have heq := logarithmic_magnitude_anomaly mu_o mu_l (optical_distance L r) r z
+    hpath hr hz ho hl
+  exact ⟨heq, heq.symm ▸ optical_magnitude_anomaly_pos L r hL hr⟩
 
 -- ==========================================
 -- SECTION 16: Discussion: Predictive Corollaries & Future Work
@@ -1976,6 +2683,10 @@ theorem michelson_morley_invariance (t_parallel t_perp L_arm v_light : ℝ)
     t_parallel = t_perp := by
   rw [h_t_par, h_t_perp]
 
+/-- Legacy local speed identity. This rearranges an assumed index relation;
+it does not integrate a path or prove a time delay. See
+`refractive_travel_time_delay_pos` for the finite-path delay theorem under
+the exponential ansatz. The legacy theorem name is retained for compatibility. -/
 theorem shapiro_delay_refraction (r_val t_val alpha_s_val : ℝ)
     (h_alpha_pos : alpha_s_val > 0)
     (h_n : c / (r_val / t_val) = 1 / alpha_s_val^2) :
