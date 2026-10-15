@@ -46,18 +46,76 @@ Fixes #40.
 
 The original manuscript abstract remains manuscript metadata. This change does not claim to repair the separate scientific-scope issues.
 
+## READY: #9 explicit coordinate conservation
+
+Status: **READY**
+Issue: https://github.com/lilalittle/asymmetric-tensor/issues/9
+Source repository: subtleGradient/asymmetric-tensor
+Source branch: `dot/repair-conservation`
+Verified head: `78ee76bf2dbf2412b5f35a51e38e3695c014a6f9`
+Target: `lilalittle/asymmetric-tensor:main`
+Target baseline: `9f69988d17c9fb86f35a563eb6466be9dbf4e524`
+Dependencies: none; prioritize this logical-consistency fix.
+Compare: https://github.com/lilalittle/asymmetric-tensor/compare/main...subtleGradient:asymmetric-tensor:dot/repair-conservation
+Proposed title: Replace universal conservation with an explicit field constraint
+
+### Full proposed PR body
+
+#### Summary
+- Remove the inconsistent axiom asserting conservation for every matrix-valued field.
+- Define CoordinateConserved as an explicit coordinate-divergence constraint and require it in both component-projection theorems.
+- Prove all constant matrix fields satisfy it, exhibit a nonempty solution class, and prove the original linear-coordinate counterexample does not satisfy it.
+- Document coordinate versus covariant divergence, the API change, historical contradiction, and remaining physical PDE work. No new physical law is selected.
+
+Fixes #9.
+
+#### Validation
+- Full lake build passed on pinned Lean 4.35.0 / Mathlib aa35a481e5f0cdb3b04a899ead15d6ca7305a624 (3315 jobs).
+- lake env lean tests/Conservation.lean passed.
+- All five conservation theorem dependency reports contain only propext, Classical.choice, and Quot.sound; no sorryAx or custom conservation axiom.
+- Existing geometric_navier_stokes and unified_action_separation dependencies were also inspected and retain only their existing physical constants plus standard logic.
+- Independent mathematical/static review and git diff --check passed.
+- Nine existing legacy/module import warnings remain; no new build errors. There is no upstream CI workflow, so no CI pass is claimed.
+
+## READY: #25 base-10 distance modulus
+
+Status: **READY**
+Issue: https://github.com/lilalittle/asymmetric-tensor/issues/25
+Source repository: subtleGradient/asymmetric-tensor
+Source branch: `dot/fix-distance-modulus-base10`
+Verified head: `bafc5790379fa9bbbb696d8a10f61d2fba952bf9`
+Target: `lilalittle/asymmetric-tensor:main`
+Target baseline: `9f69988d17c9fb86f35a563eb6466be9dbf4e524`
+Dependencies: none for this isolated correction; the separate universal-conservation repair remains important for the full library.
+Compare: https://github.com/lilalittle/asymmetric-tensor/compare/main...subtleGradient:asymmetric-tensor:dot/fix-distance-modulus-base10
+Proposed title: Use base-10 logarithms in the distance-modulus theorem
+
+### Full proposed PR body
+
+#### Summary
+- Use log(x)/log(10) consistently in both distance-modulus hypotheses and conclusions, matching manuscript v9 Eq. (239).
+- Retain positive distances and positive redshift factor; document dimensionless ratios, Mpc numerical distances, and the 10 pc reference.
+- Add exact tenfold and equal-distance regressions, including an end-to-end application of the modulus theorem. This remains conditional algebra, not an optical-path or cosmological derivation.
+
+Fixes #25.
+
+#### Validation
+- Full lake build passed on pinned Lean 4.35.0 / Mathlib aa35a481e5f0cdb3b04a899ead15d6ca7305a624 (3315 jobs).
+- lake env lean tests/DistanceModulus.lean passed.
+- All three affected theorem dependency reports contain only propext, Classical.choice, and Quot.sound; no sorryAx or physical custom axioms.
+- Independent review checked the statement against PDF page50 Eq. (239); git diff --check passed.
+- Nine existing legacy/module import warnings remain. No upstream CI pass is claimed.
+
 ## In-progress changes: do not open yet
 
 | Issue | Proposed branch | Status and remaining validation |
 | --- | --- | --- |
-| [#9](https://github.com/lilalittle/asymmetric-tensor/issues/9) conservation | `dot/repair-conservation` | Local patch and regression proofs prepared; independent static review passed; Lean kernel checks pending. Branch not yet published. |
-| [#25](https://github.com/lilalittle/asymmetric-tensor/issues/25) base-10 modulus | `dot/fix-distance-modulus-base10` | Local patch and regression proofs prepared; independent static review passed; Lean kernel checks pending. Remote branch currently only contains baseline, not the fix. |
 | [#27](https://github.com/lilalittle/asymmetric-tensor/issues/27) force baseline | `dot/fix-em-force-baseline` | Local patch prepared; independent static review and 12 exact rational checks passed; Lean kernel checks pending. Branch not yet published. |
 | [#34](https://github.com/lilalittle/asymmetric-tensor/issues/34) reproducible setup | `dot/reproduce-pinned-build` (planned name) | Local patch prepared; static pin-preservation review passed; fresh-checkout build validation pending. Branch not yet published. |
 | [#11](https://github.com/lilalittle/asymmetric-tensor/issues/11) tensor Lie derivative | To be recorded after validation | Local implementation underway; review and kernel checks pending. |
 | [#33](https://github.com/lilalittle/asymmetric-tensor/issues/33) formalization scope | To be recorded after validation | Documentation underway; baseline inconsistency must remain disclosed until the conservation repair is integrated. |
 
-The official Lean 4.35.0 toolchain is installed. Pinned Mathlib dependency/cache setup is in progress. No untested Lean change is marked ready.
+Pinned Lean 4.35.0 and the required Mathlib import cache are installed. Baseline and READY-entry builds passed. No untested Lean change is marked ready.
 
 ## Remaining issue coverage
 
